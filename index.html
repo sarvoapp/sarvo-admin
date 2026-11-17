@@ -268,11 +268,24 @@ async function openReq(id){
   }
 
   var c = "";
-  c += "<div><span>Driver has now</span><span>"+cur.days_remaining+" days</span></div>";
-  c += "<div><span>Plan</span><span>+"+cur.plan_days+" days</span></div>";
-  if (cur.promotion_days) c += "<div><span>City promotion</span><span>+"+cur.promotion_days+" days</span></div>";
-  c += "<div class='tot'><span>After approval</span><span>"+day(cur.new_expiry)+"</span></div>";
-  if (cur.referrer_name) c += "<div style='color:var(--muted)'><span>"+cur.referrer_name+" (referrer) gets</span><span>+"+cur.referrer_bonus_days+" days</span></div>";
+  if (cur.status === "pending"){
+    c += "<div><span>Driver has now</span><span>"+cur.days_remaining+" days</span></div>";
+    c += "<div><span>Plan</span><span>+"+cur.plan_days+" days</span></div>";
+    if (cur.promotion_days) c += "<div><span>City promotion</span><span>+"+cur.promotion_days+" days</span></div>";
+    c += "<div class='tot'><span>After approval</span><span>"+day(cur.new_expiry)+"</span></div>";
+    if (cur.referrer_name) c += "<div style='color:var(--muted)'><span>"+cur.referrer_name+" (referrer) gets</span><span>+"+cur.referrer_bonus_days+" days</span></div>";
+  } else if (cur.status === "approved"){
+    c += "<div><span>Approved on</span><span>"+day(cur.reviewed_at)+"</span></div>";
+    c += "<div><span>Days granted</span><span>"+cur.days_granted+" days</span></div>";
+    if (cur.review_note) c += "<div style='color:var(--muted)'><span>Reason given</span><span>"+cur.review_note+"</span></div>";
+    c += "<div class='tot'><span>Membership runs to</span><span>"+day(cur.current_expiry)+"</span></div>";
+  } else if (cur.status === "rejected"){
+    c += "<div><span>Rejected on</span><span>"+day(cur.reviewed_at)+"</span></div>";
+    c += "<div><span>Reason</span><span>"+(cur.reject_code||"")+"</span></div>";
+    if (cur.review_note) c += "<div style='color:var(--muted)'><span>Note</span><span>"+cur.review_note+"</span></div>";
+  } else {
+    c += "<div><span>Withdrawn by driver</span><span>"+day(cur.cancelled_at)+"</span></div>";
+  }
   document.getElementById("d_calc").innerHTML = c;
 
   var a = document.getElementById("d_actions");
