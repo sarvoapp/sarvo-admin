@@ -245,7 +245,6 @@ async function openReq(id){
     (cur.driver.email||"") + " \u00B7 " + (cur.driver.phone||"no phone") + " \u00B7 " + (cur.driver.city||"");
 
   var kv = "";
-  kv += "<dt>UTR</dt><dd>"+cur.utr+"</dd>";
   kv += "<dt>Plan</dt><dd>"+cur.plan_id+" ("+cur.plan_days+" days)</dd>";
   kv += "<dt>Submitted</dt><dd>"+day(cur.submitted_at)+"</dd>";
   kv += "<dt>Last paid</dt><dd>"+(cur.last_paid_at?day(cur.last_paid_at):"first payment")+"</dd>";
@@ -254,7 +253,8 @@ async function openReq(id){
     kv += "<dt>UTR seen</dt><dd class='ok'>"+cur.utr_history.length+" times \u2014 check dates</dd>";
   }
   document.getElementById("d_kv").innerHTML = kv;
-  document.getElementById("d_expected").textContent = money(cur.expected_amount);
+  document.getElementById("d_expected").innerHTML = money(cur.expected_amount) +
+    "<div style='font-size:15px;font-weight:500;color:var(--muted);margin-top:4px'>UTR " + cur.utr + "</div>";
 
   var box = document.getElementById("d_shotbox");
   box.innerHTML = "<div class='empty'>Loading screenshot...</div>";
