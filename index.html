@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SARVO Admin</title>
+<style>
+  :root{--bg:#0f1417;--surface:#171f24;--line:#263238;--fg:#e8eef0;--muted:#8fa3ab;
+        --accent:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:15px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:24px max(16px,env(safe-area-inset-left)) 56px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+  label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;
+        text-transform:uppercase;letter-spacing:.06em}
+  input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;
+        font-size:16px;background:#0c1113;color:var(--fg)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  button{padding:12px 16px;border:0;border-radius:9px;background:var(--accent);color:#06211e;
+        font-size:15px;font-weight:700;cursor:pointer}
+  button:disabled{opacity:.45;cursor:default}
+  button.wide{width:100%;margin-top:16px}
+  button.ghost{background:transparent;color:var(--muted);font-weight:500;border:1px solid var(--line)}
+  button.bad{background:var(--bad);color:#2a0606}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:140px}
+  .tabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 18px;padding-bottom:4px}
+  .tabs button{background:var(--surface);color:var(--muted);font-weight:600;font-size:13px;
+        white-space:nowrap;padding:9px 13px}
+  .tabs button[aria-selected=true]{background:var(--accent);color:#06211e}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:11px;
+        padding:14px;margin-bottom:10px;cursor:pointer}
+  .card:hover{border-color:var(--accent)}
+  .card .top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+  .card b{font-size:15px}
+  .card .meta{color:var(--muted);font-size:12.5px;margin-top:3px}
+  .amt{font-weight:700;white-space:nowrap}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase}
+  .pending{background:#422006;color:var(--warn)} .approved{background:#052e16;color:var(--ok)}
+  .rejected{background:#450a0a;color:var(--bad)} .cancelled{background:#1f2937;color:var(--muted)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin:0 0 14px}
+  .kv dt{color:var(--muted)} .kv dd{margin:0}
+  .big{font-size:22px;font-weight:800;color:var(--accent)}
+  .calc{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:14px;margin:14px 0}
+  .calc div{display:flex;justify-content:space-between;font-size:14px;padding:2px 0}
+  .calc .tot{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;font-weight:700}
+  img.shot{width:100%;border-radius:11px;border:1px solid var(--line);display:block;cursor:zoom-in}
+  .err{color:var(--bad);font-size:14px;min-height:20px;margin-top:12px}
+  .ok{color:var(--ok)}
+  .hide{display:none}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+  .bar small{color:var(--muted);font-size:12px}
+  .empty{color:var(--muted);text-align:center;padding:40px 0;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="s_login">
+    <h1>SARVO Admin</h1>
+    <p class="sub">Sign in with your admin email.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email">
+    <button class="wide" id="b_send">Send code</button>
+    <div class="err" id="e_login"></div>
+  </div>
+
+  <div id="s_code" class="hide">
+    <h1>Enter the code</h1>
+    <p class="sub" id="who"></p>
+    <label for="code">Code</label>
+    <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code">
+    <button class="wide" id="b_verify">Verify</button>
+    <div class="err" id="e_code"></div>
+  </div>
+
+  <div id="s_unlock" class="hide">
+    <h1>Unlock</h1>
+    <p class="sub">Your admin passphrase. Held in memory only, for one hour.</p>
+    <label for="pass">Passphrase</label>
+    <input id="pass" type="password" autocomplete="off">
+    <button class="wide" id="b_unlock">Unlock</button>
+    <button class="wide ghost" id="b_signout">Sign out</button>
+    <div class="err" id="e_unlock"></div>
+  </div>
+
+  <div id="s_main" class="hide">
+    <div class="bar">
+      <div><h1 style="margin:0">SARVO Admin</h1><small id="locktime"></small></div>
+      <button class="ghost" id="b_lock">Lock</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="list"></div>
+    <div id="panel"></div>
+    <div class="err" id="e_main"></div>
+  </div>
+
+  <div id="s_detail" class="hide">
+    <div class="bar">
+      <button class="ghost" id="b_back">Back</button>
+      <span class="pill" id="d_status"></span>
+    </div>
+    <h1 id="d_name"></h1>
+    <p class="sub" id="d_contact"></p>
+
+    <dl class="kv" id="d_kv"></dl>
+
+    <label>Expected amount</label>
+    <div class="big" id="d_expected"></div>
+
+    <div id="d_shotbox"></div>
+
+    <div class="calc" id="d_calc"></div>
+
+    <div id="d_actions"></div>
+    <div class="err" id="e_detail"></div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+var sb = supabase.createClient("https://lzngbxgzbbbzbgmgyiix.supabase.co", "sb_publishable_S0U4zr4tdxmmOGCxpd2zjQ_-MXQacXX ");
+var tok = null, exp = null, over = null, tab = "pending", cur = null;
+
+function show(id){
+  var a = ["s_login","s_code","s_unlock","s_main","s_detail"];
+  for (var i=0;i<a.length;i++) document.getElementById(a[i]).classList.add("hide");
+  document.getElementById(id).classList.remove("hide");
+}
+function err(id,m){ document.getElementById(id).textContent = m || ""; }
+function money(n){ return "\u20B9" + Number(n).toFixed(2); }
+function day(s){ return s ? String(s).slice(0,10) : "\u2014"; }
+
+document.getElementById("b_send").onclick = async function(){
+  var em = document.getElementById("email").value.trim();
+  if (!em){ err("e_login","Enter your email"); return; }
+  this.disabled = true; err("e_login","");
+  var r = await sb.auth.signInWithOtp({ email: em, options:{ shouldCreateUser:false } });
+  this.disabled = false;
+  if (r.error){ err("e_login", r.error.message); return; }
+  document.getElementById("who").textContent = "Sent to " + em;
+  show("s_code");
+};
+
+document.getElementById("b_verify").onclick = async function(){
+  var em = document.getElementById("email").value.trim();
+  var tk = document.getElementById("code").value.trim();
+  this.disabled = true; err("e_code","");
+  var r = await sb.auth.verifyOtp({ email: em, token: tk, type: "email" });
+  this.disabled = false;
+  if (r.error){ err("e_code","That code is wrong or expired."); return; }
+  show("s_unlock");
+};
+
+document.getElementById("b_signout").onclick = async function(){
+  await sb.auth.signOut(); tok = null; show("s_login");
+};
+
+document.getElementById("b_unlock").onclick = async function(){
+  var p = document.getElementById("pass").value;
+  if (!p){ err("e_unlock","Enter your passphrase"); return; }
+  this.disabled = true; err("e_unlock","");
+  var r = await sb.rpc("admin_unlock", { p_passphrase: p });
+  this.disabled = false;
+  document.getElementById("pass").value = "";
+  if (r.error){ err("e_unlock", r.error.message); return; }
+  tok = r.data.token; exp = new Date(r.data.expires_at);
+  start();
+};
+
+document.getElementById("b_lock").onclick = async function(){
+  if (tok) await sb.rpc("admin_lock", { p_token: tok });
+  tok = null; show("s_unlock");
+};
+
+async function start(){
+  var r = await sb.rpc("admin_overview", { p_admin_token: tok });
+  if (r.error){ err("e_main", r.error.message); show("s_unlock"); return; }
+  over = r.data;
+  document.getElementById("locktime").textContent =
+    "Unlocked until " + exp.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) +
+    " \u00B7 mode: " + over.mode;
+  drawTabs();
+  show("s_main");
+  load();
+}
+
+function drawTabs(){
+  var names = [["pending","Pending" + (over.pending ? " ("+over.pending+")" : "")],
+               ["approved","Approved"],["rejected","Rejected"],
+               ["accounts","Accounts"],["mode","Mode"],["security","Security"]];
+  var h = "";
+  for (var i=0;i<names.length;i++){
+    h += "<button data-t='"+names[i][0]+"' aria-selected='"+(tab===names[i][0])+"'>"+names[i][1]+"</button>";
+  }
+  document.getElementById("tabs").innerHTML = h;
+  var bs = document.querySelectorAll("#tabs button");
+  for (var j=0;j<bs.length;j++){
+    bs[j].onclick = function(){ tab = this.getAttribute("data-t"); drawTabs(); load(); };
+  }
+}
+
+async function load(){
+  err("e_main","");
+  var L = document.getElementById("list"), P = document.getElementById("panel");
+  L.innerHTML = ""; P.innerHTML = "";
+
+  if (tab === "accounts") return loadAccounts();
+  if (tab === "mode")     return loadMode();
+  if (tab === "security") return loadSecurity();
+
+  var r = await sb.rpc("admin_list_payment_requests", { p_admin_token: tok, p_status: tab, p_offset: 0 });
+  if (r.error){ err("e_main", r.error.message); return; }
+  if (!r.data.length){ L.innerHTML = "<div class='empty'>Nothing here.</div>"; return; }
+
+  var h = "";
+  for (var i=0;i<r.data.length;i++){
+    var x = r.data[i];
+    h += "<div class='card' data-id='"+x.request_id+"'>" +
+         "<div class='top'><b>"+x.driver+"</b><span class='amt'>"+money(x.amount)+"</span></div>" +
+         "<div class='meta'>"+x.plan+" \u00B7 UTR "+x.utr+"</div>" +
+         "<div class='meta'>"+day(x.created_at)+" \u00B7 <span class='pill "+x.status+"'>"+x.status+"</span></div>" +
+         "</div>";
+  }
+  L.innerHTML = h;
+  var cs = document.querySelectorAll("#list .card");
+  for (var j=0;j<cs.length;j++){
+    cs[j].onclick = function(){ openReq(this.getAttribute("data-id")); };
+  }
+}
+
+async function openReq(id){
+  err("e_detail","");
+  var r = await sb.rpc("preview_payment_request", { p_admin_token: tok, p_request_id: Number(id) });
+  if (r.error){ err("e_main", r.error.message); return; }
+  cur = r.data;
+
+  document.getElementById("d_status").textContent = cur.status;
+  document.getElementById("d_status").className = "pill " + cur.status;
+  document.getElementById("d_name").textContent = cur.driver.name || "Driver";
+  document.getElementById("d_contact").textContent =
+    (cur.driver.email||"") + " \u00B7 " + (cur.driver.phone||"no phone") + " \u00B7 " + (cur.driver.city||"");
+
+  var kv = "";
+  kv += "<dt>UTR</dt><dd>"+cur.utr+"</dd>";
+  kv += "<dt>Plan</dt><dd>"+cur.plan_id+" ("+cur.plan_days+" days)</dd>";
+  kv += "<dt>Submitted</dt><dd>"+day(cur.submitted_at)+"</dd>";
+  kv += "<dt>Last paid</dt><dd>"+(cur.last_paid_at?day(cur.last_paid_at):"first payment")+"</dd>";
+  kv += "<dt>Referral</dt><dd>"+(cur.driver.referral_number||"\u2014")+"</dd>";
+  if (cur.utr_history && cur.utr_history.length > 1){
+    kv += "<dt>UTR seen</dt><dd class='ok'>"+cur.utr_history.length+" times \u2014 check dates</dd>";
+  }
+  document.getElementById("d_kv").innerHTML = kv;
+  document.getElementById("d_expected").textContent = money(cur.expected_amount);
+
+  var box = document.getElementById("d_shotbox");
+  box.innerHTML = "<div class='empty'>Loading screenshot...</div>";
+  if (cur.screenshot_path){
+    var s = await sb.storage.from("payment-proofs").createSignedUrl(cur.screenshot_path, 300);
+    box.innerHTML = s.data
+      ? "<a href='"+s.data.signedUrl+"' target='_blank'><img class='shot' src='"+s.data.signedUrl+"'></a>"
+      : "<div class='empty'>Screenshot unavailable (may have been purged).</div>";
+  } else {
+    box.innerHTML = "<div class='empty'>No screenshot.</div>";
+  }
+
+  var c = "";
+  c += "<div><span>Driver has now</span><span>"+cur.days_remaining+" days</span></div>";
+  c += "<div><span>Plan</span><span>+"+cur.plan_days+" days</span></div>";
+  if (cur.promotion_days) c += "<div><span>City promotion</span><span>+"+cur.promotion_days+" days</span></div>";
+  c += "<div class='tot'><span>After approval</span><span>"+day(cur.new_expiry)+"</span></div>";
+  if (cur.referrer_name) c += "<div style='color:var(--muted)'><span>"+cur.referrer_name+" (referrer) gets</span><span>+"+cur.referrer_bonus_days+" days</span></div>";
+  document.getElementById("d_calc").innerHTML = c;
+
+  var a = document.getElementById("d_actions");
+  if (cur.status !== "pending"){ a.innerHTML = ""; show("s_detail"); return; }
+
+  var reasons = "";
+  for (var i=0;i<over.reject_reasons.length;i++){
+    reasons += "<option value='"+over.reject_reasons[i].code+"'>"+over.reject_reasons[i].text+"</option>";
+  }
+  a.innerHTML =
+    "<label for='days'>Approve for how many days</label>" +
+    "<input id='days' type='text' inputmode='numeric' value='"+cur.plan_days+"'>" +
+    "<label for='note'>Reason (needed only if you change the days)</label>" +
+    "<input id='note' type='text'>" +
+    "<button class='wide' id='b_ok'>Approve</button>" +
+    "<label for='why'>Or reject with</label>" +
+    "<select id='why'>"+reasons+"</select>" +
+    "<button class='wide bad' id='b_no'>Reject</button>";
+
+  document.getElementById("b_ok").onclick = doApprove;
+  document.getElementById("b_no").onclick = doReject;
+  show("s_detail");
+}
+
+async function doApprove(){
+  var d = parseInt(document.getElementById("days").value, 10);
+  var n = document.getElementById("note").value.trim();
+  if (!d || d < 1){ err("e_detail","Enter the number of days"); return; }
+  this.disabled = true; err("e_detail","");
+  var r = await sb.rpc("approve_payment_request",
+    { p_admin_token: tok, p_request_id: cur.request_id, p_days: d, p_note: n || null });
+  this.disabled = false;
+  if (r.error){ err("e_detail", r.error.message); return; }
+  await refresh();
+}
+
+async function doReject(){
+  var code = document.getElementById("why").value;
+  var n = document.getElementById("note").value.trim();
+  this.disabled = true; err("e_detail","");
+  var r = await sb.rpc("reject_payment_request",
+    { p_admin_token: tok, p_request_id: cur.request_id, p_reject_code: code, p_note: n || null });
+  this.disabled = false;
+  if (r.error){ err("e_detail", r.error.message); return; }
+  await refresh();
+}
+
+async function refresh(){
+  var o = await sb.rpc("admin_overview", { p_admin_token: tok });
+  if (!o.error) over = o.data;
+  drawTabs(); show("s_main"); load();
+}
+
+document.getElementById("b_back").onclick = function(){ show("s_main"); };
+
+async function loadAccounts(){
+  var r = await sb.rpc("admin_list_payment_accounts", { p_admin_token: tok });
+  if (r.error){ err("e_main", r.error.message); return; }
+  var h = "";
+  for (var i=0;i<r.data.length;i++){
+    var a = r.data[i];
+    h += "<div class='card' style='cursor:default'><div class='top'><b>"+a.label+"</b>" +
+         (a.is_active ? "<span class='pill approved'>active</span>"
+                      : "<button data-act='"+a.id+"'>Make active</button>") + "</div>" +
+         "<div class='meta'>"+a.upi_id+" \u00B7 "+a.payee_name+"</div></div>";
+  }
+  h += "<div class='card' style='cursor:default'><b>Add an account</b>" +
+       "<label for='a_label'>Label</label><input id='a_label'>" +
+       "<label for='a_upi'>UPI id</label><input id='a_upi' placeholder='name@okaxis'>" +
+       "<label for='a_name'>Payee name</label><input id='a_name'>" +
+       "<button class='wide' id='b_add'>Add (starts inactive)</button></div>";
+  document.getElementById("list").innerHTML = h;
+
+  var bs = document.querySelectorAll("#list button[data-act]");
+  for (var j=0;j<bs.length;j++){
+    bs[j].onclick = async function(){
+      var x = await sb.rpc("admin_activate_payment_account",
+        { p_admin_token: tok, p_id: Number(this.getAttribute("data-act")) });
+      if (x.error) err("e_main", x.error.message); else loadAccounts();
+    };
+  }
+  document.getElementById("b_add").onclick = async function(){
+    var x = await sb.rpc("admin_add_payment_account", {
+      p_admin_token: tok,
+      p_label: document.getElementById("a_label").value.trim(),
+      p_upi_id: document.getElementById("a_upi").value.trim(),
+      p_payee_name: document.getElementById("a_name").value.trim()
+    });
+    if (x.error) err("e_main", x.error.message); else loadAccounts();
+  };
+}
+
+function loadMode(){
+  var modes = [["razorpay","Razorpay only"],["manual","UPI only (you approve)"],
+               ["both","Both"],["off","Off"]];
+  var h = "<div class='card' style='cursor:default'><b>Payment mode</b>" +
+          "<div class='meta' style='margin-bottom:10px'>Currently: "+over.mode+"</div><div class='row'>";
+  for (var i=0;i<modes.length;i++){
+    h += "<button class='" + (over.mode===modes[i][0] ? "" : "ghost") +
+         "' data-m='"+modes[i][0]+"'>"+modes[i][1]+"</button>";
+  }
+  h += "</div></div>";
+  document.getElementById("list").innerHTML = h;
+  var bs = document.querySelectorAll("#list button[data-m]");
+  for (var j=0;j<bs.length;j++){
+    bs[j].onclick = async function(){
+      var x = await sb.rpc("admin_set_payment_mode",
+        { p_admin_token: tok, p_mode: this.getAttribute("data-m") });
+      if (x.error){ err("e_main", x.error.message); return; }
+      var o = await sb.rpc("admin_overview", { p_admin_token: tok });
+      if (!o.error){ over = o.data; drawTabs(); loadMode(); }
+    };
+  }
+}
+
+function loadSecurity(){
+  document.getElementById("list").innerHTML =
+    "<div class='card' style='cursor:default'><b>Change passphrase</b>" +
+    "<div class='meta' style='margin-bottom:10px'>Changing it signs out every open admin session, including this one.</div>" +
+    "<label for='p_old'>Current passphrase</label><input id='p_old' type='password' autocomplete='off'>" +
+    "<label for='p_new'>New passphrase</label><input id='p_new' type='password' autocomplete='off'>" +
+    "<label for='p_new2'>New passphrase again</label><input id='p_new2' type='password' autocomplete='off'>" +
+    "<button class='wide' id='b_pass'>Change passphrase</button>" +
+    "<div class='err' id='e_pass'></div></div>";
+
+  document.getElementById("b_pass").onclick = async function(){
+    var o  = document.getElementById("p_old").value;
+    var n  = document.getElementById("p_new").value;
+    var n2 = document.getElementById("p_new2").value;
+    err("e_pass","");
+    if (n.length < 12){ err("e_pass","New passphrase must be at least 12 characters"); return; }
+    if (n !== n2){ err("e_pass","The two new passphrases do not match"); return; }
+    this.disabled = true;
+    var r = await sb.rpc("admin_set_passphrase", { p_new: n, p_old: o });
+    this.disabled = false;
+    document.getElementById("p_old").value  = "";
+    document.getElementById("p_new").value  = "";
+    document.getElementById("p_new2").value = "";
+    if (r.error){ err("e_pass", r.error.message); return; }
+    tok = null;
+    show("s_unlock");
+    err("e_unlock","Passphrase changed. Unlock with the new one.");
+  };
+}
+
+(async function(){
+  var s = await sb.auth.getSession();
+  show(s.data && s.data.session ? "s_unlock" : "s_login");
+})();
+</script>
+</body>
+</html>
+
